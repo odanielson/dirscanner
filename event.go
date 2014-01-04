@@ -9,7 +9,7 @@ const (
     PANIC = "PANIC"
 )
 
-type Result struct {
+type Event struct {
     M_level string
     M_msg string
     M_err error

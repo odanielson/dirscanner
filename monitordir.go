@@ -11,8 +11,9 @@ import (
 )
 
 type Monitor struct {
+    m_path string
     m_fileMsgs chan FileMsg
-    m_events chan Result
+    m_events chan Event
     m_watcher *fsnotify.Watcher
 }
 
@@ -44,11 +45,11 @@ func (m *Monitor) handleEvents() {
                 }
 
             } else {
-                m.m_events <- Result{ERROR, "Got empty event from fsnotify.",
+                m.m_events <- Event{ERROR, "Got empty event from fsnotify.",
                     nil}
             }
         case err := <-m.m_watcher.Error:
-            m.m_events <- Result{ERROR, "Got error from fsnotify.", err}
+            m.m_events <- Event{ERROR, "Got error from fsnotify.", err}
         }
     }
 }
@@ -62,33 +63,37 @@ func (m *Monitor) monitorDir(a_path string) {
             }
         }
     } else {
-        m.m_events <- Result{ERROR, fmt.Sprintf(
+        m.m_events <- Event{ERROR, fmt.Sprintf(
             "Failed to list files at path %s\n", a_path), err}
     }
 
     if err := m.m_watcher.Watch(a_path); err != nil {
-        m.m_events <- Result{ERROR, fmt.Sprintf(
+        m.m_events <- Event{ERROR, fmt.Sprintf(
             "Failed to watch path %s\n", a_path), err}
         return
     }
 }
 
 func CreateMonitor(a_path string, a_fileMsgs chan FileMsg,
-    a_events chan Result) *Monitor {
+    a_events chan Event) *Monitor {
 
     m := Monitor{}
+    m.m_path = a_path
     m.m_fileMsgs = a_fileMsgs
     m.m_events = a_events
     var err error
     if m.m_watcher, err = fsnotify.NewWatcher(); err != nil {
-        m.m_events <- Result{ERROR, "Failed to create fsnotify watcher.",
+        m.m_events <- Event{ERROR, "Failed to create fsnotify watcher.",
             nil}
         return nil
     }
 
-    go m.handleEvents()
-    go m.monitorDir(a_path)
     return &m
+}
+
+func (m *Monitor) Start() {
+    go m.handleEvents()
+    go m.monitorDir(m.m_path)
 }
 
 func (m *Monitor) Stop() {
